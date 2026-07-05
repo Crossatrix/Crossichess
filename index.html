@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger Chess</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<style>
+  :root{
+    --ink:#1b2b22;
+    --ink-2:#233327;
+    --ivory:#ede6d6;
+    --brass:#b08d57;
+    --brass-light:#d7b98a;
+    --rust:#a6432f;
+    --sage:#6fa287;
+    --paper:#f4efe3;
+    --line:#3a4a3d;
+    --board-light:#ede0c8;
+    --board-dark:#7a6142;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--ivory);
+    font-family:"Iowan Old Style","Georgia",serif;
+    min-height:100vh;
+  }
+  h1,h2,h3{
+    font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    font-weight:600;
+    letter-spacing:.02em;
+    margin:0;
+  }
+  .app-shell{
+    max-width:1180px;
+    margin:0 auto;
+    padding:28px 20px 60px;
+  }
+  header.ledger-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border-bottom:1px solid var(--line);
+    padding-bottom:14px;
+    margin-bottom:24px;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  header.ledger-head h1{
+    font-size:1.8rem;
+    color:var(--brass-light);
+  }
+  header.ledger-head .subtitle{
+    font-family:"Courier New",monospace;
+    font-size:.72rem;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#9db3a3;
+  }
+  .mode-bar{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:22px;
+  }
+  .mode-btn{
+    font-family:"Courier New",monospace;
+    font-size:.72rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    background:transparent;
+    border:1px solid var(--line);
+    color:#c9d3cb;
+    padding:9px 14px;
+    cursor:pointer;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .mode-btn:hover{border-color:var(--brass);}
+  .mode-btn.active{
+    background:var(--brass);
+    border-color:var(--brass);
+    color:var(--ink);
+    font-weight:bold;
+  }
+  .layout{
+    display:grid;
+    grid-template-columns:minmax(320px,560px) 320px;
+    gap:28px;
+    align-items:start;
+  }
+  @media (max-width:880px){
+    .layout{grid-template-columns:1fr;}
+  }
+  .board-wrap{
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    padding:18px;
+  }
+  .board-frame{
+    border:10px solid var(--brass);
+    box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  #board{
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    grid-template-rows:repeat(8,1fr);
+    width:100%;
+    aspect-ratio:1/1;
+    user-select:none;
+  }
+  .sq{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:clamp(1.4rem,4.8vw,2.8rem);
+    cursor:pointer;
+  }
+  .sq.light{background:var(--board-light);}
+  .sq.dark{background:var(--board-dark);}
+  .sq.selected{outline:3px solid var(--sage) inset;}
+  .sq.legal::after{
+    content:"";
+    position:absolute;
+    width:22%;
+    height:22%;
+    border-radius:50%;
+    background:rgba(50,60,45,.45);
+  }
+  .sq.legal.capture::after{
+    width:82%;
+    height:82%;
+    border-radius:50%;
+    background:transparent;
+    border:4px solid rgba(166,67,47,.65);
+  }
+  .sq.lastmove{background-image:linear-gradient(rgba(176,141,87,.35),rgba(176,141,87,.35));}
+  .sq .piece{
+    filter:drop-shadow(0 2px 1px rgba(0,0,0,.35));
+    pointer-events:none;
+  }
+  .piece.white{color:#f5f0e4;-webkit-text-stroke:1px #3a2f1c;}
+  .piece.black{color:#22201b;-webkit-text-stroke:1px #d8cba9;}
+  .coords{
+    display:flex;
+    justify-content:space-between;
+    font-family:"Courier New",monospace;
+    font-size:.68rem;
+    color:#9db3a3;
+    margin-top:8px;
+    letter-spacing:.1em;
+  }
+  .status-row{
+    margin-top:14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-family:"Courier New",monospace;
+    font-size:.8rem;
+    color:var(--brass-light);
+  }
+  .status-row button{
+    background:transparent;
+    border:1px solid var(--line);
+    color:#c9d3cb;
+    font-family:inherit;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .status-row button:hover{border-color:var(--rust);color:var(--rust);}
+  .panel{
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+  .panel h3{
+    font-size:.9rem;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color:#9db3a3;
+    border-bottom:1px solid var(--line);
+    padding-bottom:8px;
+  }
+  .option-row{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .option-row label{
+    font-family:"Courier New",monospace;
+    font-size:.7rem;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color:#9db3a3;
+  }
+  select{
+    background:var(--ink);
+    color:var(--ivory);
+    border:1px solid var(--line);
+    padding:8px;
+    font-family:"Courier New",monospace;
+    font-size:.78rem;
+  }
+  .rated-toggle{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:"Courier New",monospace;
+    font-size:.75rem;
+    color:#c9d3cb;
+  }
+  .move-ledger{
+    max-height:220px;
+    overflow-y:auto;
+    font-family:"Courier New",monospace;
+    font-size:.8rem;
+    line-height:1.9;
+    border-left:2px solid var(--line);
+    padding-left:10px;
+  }
+  .move-ledger .mv-pair{display:flex;gap:8px;}
+  .move-ledger .mv-num{color:#71856f;width:24px;flex-shrink:0;}
+  .move-ledger .mv-san{color:var(--ivory);}
+  .badge{
+    display:inline-block;
+    font-size:.62rem;
+    padding:1px 6px;
+    margin-left:5px;
+    border-radius:2px;
+    letter-spacing:.03em;
+    font-weight:bold;
+  }
+  .badge.brilliant{background:#1d6f56;color:#d7ffe9;}
+  .badge.great{background:#2c7a56;color:#e2ffe9;}
+  .badge.best{background:var(--brass);color:var(--ink);}
+  .badge.excellent{background:#5a8a5f;color:#eaffe9;}
+  .badge.good{background:#6a7a5a;color:#eeffe9;}
+  .badge.inaccuracy{background:#b0932e;color:#221c05;}
+  .badge.mistake{background:#a6612f;color:#fff3e6;}
+  .badge.blunder{background:var(--rust);color:#ffe9e2;}
+  .rating-summary{
+    font-family:"Courier New",monospace;
+    font-size:.78rem;
+    color:#c9d3cb;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px 14px;
+  }
+  .rating-summary .num{color:var(--brass-light);font-weight:bold;}
+  .capture-rail{
+    display:flex;
+    flex-wrap:wrap;
+    gap:2px;
+    font-size:1.1rem;
+    min-height:24px;
+  }
+  footer{
+    text-align:center;
+    font-family:"Courier New",monospace;
+    font-size:.68rem;
+    color:#71856f;
+    margin-top:34px;
+    letter-spacing:.08em;
+  }
+  .thinking{color:var(--rust);}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="ledger-head">
+    <div>
+      <h1>Ledger Chess</h1>
+      <div class="subtitle">Ein Brett. Drei Modi. Jeder Zug protokolliert.</div>
+    </div>
+    <div class="subtitle" id="turnIndicator">Weiß am Zug</div>
+  </header>
+
+  <div class="mode-bar">
+    <button class="mode-btn active" data-mode="bot">Gegen Bot</button>
+    <button class="mode-btn" data-mode="local">Lokal (2 Spieler)</button>
+    <button class="mode-btn" data-mode="rated">Bewertungsmodus</button>
+  </div>
+
+  <div class="layout">
+    <div class="board-wrap">
+      <div class="board-frame">
+        <div id="board"></div>
+      </div>
+      <div class="coords" id="coordsBottom"></div>
+      <div class="status-row">
+        <span id="statusText">Weiß am Zug</span>
+        <button id="resetBtn">Neue Partie</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div id="botOptions">
+        <h3>Bot-Einstellungen</h3>
+        <div class="option-row">
+          <label for="difficulty">Schwierigkeit</label>
+          <select id="difficulty">
+            <option value="1">Leicht (Tiefe 1)</option>
+            <option value="2" selected>Mittel (Tiefe 2)</option>
+            <option value="3">Schwer (Tiefe 3)</option>
+          </select>
+        </div>
+        <div class="option-row">
+          <label for="botSide">Bot spielt</label>
+          <select id="botSide">
+            <option value="b" selected>Schwarz</option>
+            <option value="w">Weiß</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="ratedInfo" style="display:none;">
+        <h3>Bewertungsmodus</h3>
+        <p style="font-size:.78rem;color:#c9d3cb;line-height:1.5;">
+          Jeder Zug beider Spieler wird analysiert und wie bei Chess.com
+          eingestuft – von <strong style="color:var(--sage)">Brilliant</strong>
+          bis <strong style="color:var(--rust)">Blunder</strong>.
+        </p>
+        <div class="rating-summary" id="ratingSummary"></div>
+      </div>
+
+      <div>
+        <h3>Geschlagene Figuren</h3>
+        <div class="capture-rail" id="capturedWhite" title="von Weiß geschlagen"></div>
+        <div class="capture-rail" id="capturedBlack" title="von Schwarz geschlagen"></div>
+      </div>
+
+      <div>
+        <h3>Zugprotokoll</h3>
+        <div class="move-ledger" id="moveLedger"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>LEDGER CHESS · lokal im Browser gespielt · kein Server nötig</footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
